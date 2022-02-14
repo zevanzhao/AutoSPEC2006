@@ -10,7 +10,7 @@ SPEC CPU 是最权威、最全面的处理器性能基准测试程序之一。SP
 
 # 使用方法
 ## 安装SPEC CPU 2006
-首先，完成SPEC CPU 2006的安装。如果不熟悉SPEC CPU 2006的安装，可以参考 guee 的作品《在龙芯3A5000上测试SPEC CPU 2006》https://zhuanlan.zhihu.com/p/393600027   
+首先，完成SPEC CPU 2006的安装。如果不熟悉SPEC CPU 2006的安装，可以参考 guee 的作品 [《在龙芯3A5000上测试SPEC CPU 2006》](https://zhuanlan.zhihu.com/p/393600027)
 ## 准备输入文件
 AutoSPEC2006需要三个输入文件：一个文件提供SPEC CPU config文件的模版，一个控制AutoSPEC程序的运行，一个提供候选的GCC 优化选项。这个三个文件均可以从example文件夹中找到例子。  
 SPEC CPU configure文件模版为bench.cfg和bench_ia32.cfg，请根据实际测试的情况，选择合适的文件进行修改。注意，AutoSPEC程序运行的时候依赖特定的config文件的结构，因此最好不要使用用户自己的config文件。  
