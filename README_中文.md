@@ -22,7 +22,7 @@ GCC 优化选项列表保存在文件gcc.json中，提供了40多个优化选项
 在SPEC 2006目录中，运行source shrc，设置好环境变量。  
 将SPEC.conf，gcc.json文件放在SPEC 2006的目录中，将修改好的bench.cfg文件放在config文件夹中。  
 运行
-> AutoSPEC.py SPEC.conf
+> AutoSPEC.py SPEC.conf  
 即可。
 
 ## 程序输出
