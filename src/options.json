@@ -1,0 +1,166 @@
+[
+    {
+        "name":"-mlsx",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-mlasx",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-static",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-fno-strict-aliasing",
+        "requires":[], 
+        "conflicts": ["-fstrict-aliasing"],
+        "implies": []
+    },
+    {
+        "name":"-fno-aggressive-loop-optimizations",
+        "requires":[], 
+        "conflicts": ["-faggressive-loop-optimizations"],
+        "implies": []
+    },
+    {
+        "name":"-fsigned-char",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-ffast-math ",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-fomit-frame-pointer",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-finline-functions",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-ftree-vectorize",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-funroll-loops",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-fprefetch-loop-arrays",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-faggressive-loop-optimizations",
+        "requires":[], 
+        "conflicts": ["-fno-aggressive-loop-optimizations"],
+        "implies": []
+    },
+    {
+        "name":"-flto",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-funroll-all-loops",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-funroll-all-loops",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"-ftree-parallelize-loops=4",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"floop-parallelize-all",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    },
+    {
+        "name":"",
+        "requires":[], 
+        "conflicts": [],
+        "implies": []
+    }
+    
+]
+
