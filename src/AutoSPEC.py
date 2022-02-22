@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # cython: language_level=3
-# Time-stamp: <Last updated: ZHAO,Ya-Fan zhao_yafan@iapcm.ac.cn 2021-06-03 10:53:19>
+# Time-stamp: <Last updated: ZHAO,Ya-Fan yafanzhao@163.com 2022-02-03 10:53:19>
 
+import enum
 import subprocess
 import re
 import json
@@ -262,6 +263,8 @@ def ExtractResFromLog(LogLines):
                 MyDict["PointType"] = "int"
             elif MyDict["BenchNO"] in SPEC_FP.keys():
                 MyDict["PointType"] = "fp"
+            else:
+                MyDict["PointType"] = ""
             Res.append(MyDict)
     return Res
 
@@ -279,6 +282,18 @@ def filter_res(Res, Tune, BenchSize, PointType):
         if MyDict["Tune"] == Tune and MyDict["BenchSize"] == BenchSize and MyDict["PointType"] == PointType:
             FilteredRes.append(MyDict)
     return FilteredRes
+
+def print_res(res):
+    """ 
+    friendly print the result
+
+    Args:
+        res (list): list of result dict
+    """
+    out = "\n"
+    for r in res:
+        out += "%s\t%s.%s\t%s\n" %(r["Tune"], r["BenchNO"], r["BenchName"], r["Ratio"])
+    Logger.info(out)
 
 def GetScore(FilteredRes):
     """
@@ -556,14 +571,22 @@ def parse_log_file(log_file):
         log_lines = fp.readlines()
         fp.close()
     Res = ExtractResFromLog(log_lines)
-    BaseInt = GetScore(filter_res(Res, "base", "ref", "int"))
-    BaseFP = GetScore(filter_res(Res, "base", "ref", "fp"))
-    PeakInt = GetScore(filter_res(Res, "peak", "ref", "int"))
-    PeakFP = GetScore(filter_res(Res, "peak", "ref", "fp"))
-    Logger.info("BaseInt = %.2f\nBaseFP = %.2f\nPeakInt = %.2f\nPeakFP = %.2f",
+    base_int_res = filter_res(Res, "base", "ref", "int")
+    base_fp_res = filter_res(Res, "base", "ref", "fp")
+    peak_int_res = filter_res(Res, "peak", "ref", "int")
+    peak_fp_res = filter_res(Res, "peak", "ref", "fp")
+    print_res(base_int_res)
+    print_res(base_fp_res)
+    print_res(peak_int_res)
+    print_res(peak_fp_res)
+    BaseInt = GetScore(base_int_res)
+    BaseFP = GetScore(base_fp_res)
+    PeakInt = GetScore(peak_int_res)
+    PeakFP = GetScore(peak_fp_res)
+    Logger.info("\nBaseInt = %.2f\nBaseFP = %.2f\nPeakInt = %.2f\nPeakFP = %.2f",
                 BaseInt, BaseFP, PeakInt, PeakFP)
 
-def run_spec(config, bench_no):
+def run_spec(config, bench_name):
     """[a function that call runspec program to run spec cpu]
 
     Args:
@@ -577,14 +600,28 @@ def run_spec(config, bench_no):
             "-i", config.bench_size,
             "--noreportable",
             "--ignoreerror",
-            bench_no
+            bench_name
             ]
     Logger.info("Running with cmd %s", cmd)
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     out, err = p.communicate()
     return out, err
 
-def find_best_job(jobs, bench_name, bench_size):
+def run_fake_spec(config, bench_name):
+    """
+    Just a fake function, pretending that run_spec function is called.
+    Args:
+        config (_type_): _description_
+        bench_name (_type_): _description_
+    """
+    log_name = "CPU2006.113.log"
+    cmd = ["cat", log_name]
+    Logger.info("Running with cmd %s", cmd)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    out, err = p.communicate()
+    return out, err
+
+def find_best_job(jobs, tune, bench_name, bench_size):
     """find the job with the highest score in the jobs list
     Args:
         jobs_list (list): a list of the jobs
@@ -592,49 +629,72 @@ def find_best_job(jobs, bench_name, bench_size):
         idx(int):  the index of the job
     """
     idx = None
-    if bench_size == "ref":# compare by final score.
-        score = 0.0
-        for i, job in enumerate(jobs):
-            for r in job["result"]:
-                if job["benchmark_name"] == bench_name and r["BenchSize"] == bench_size and job["final_score"] > score:
+    if tune == "peak":
+        if bench_size == "ref":# compare by final score.
+            score = 0.0
+            for i, job in enumerate(jobs):
+                for r in job["result"]:
+                    if job["benchmark_name"] == bench_name and r["Tune"] == tune and r["BenchSize"] == bench_size and job["final_score"] > score:
+                        score = job["final_score"]
+                        idx = i
+            return idx
+        elif bench_size in ["train", "test"]:
+            run_time = 99999999.9
+            for i, job in enumerate(jobs):
+                for r in job["result"]:            
+                    if job["benchmark_name"] == bench_name and r["Tune"] == tune and r["BenchSize"] == bench_size and r["RunTime"] < run_time:
+                        run_time = r["RunTime"]
+                        idx = i
+            return idx
+    elif tune == "base":
+        if bench_size == "ref":
+            score = 0.0
+            for i, job in enumerate(jobs):
+                if job["benchmark_name"] == bench_name and job["tune"] == tune and job["bench_size"] == bench_size and job["final_score"] > score:
                     score = job["final_score"]
                     idx = i
-        return idx
-    elif bench_size in ["train", "test"]:
-        run_time = 99999999.9
-        for i, job in enumerate(jobs):
-            for r in job["result"]:            
-                if job["benchmark_name"] == bench_name and r["BenchSize"] == bench_size and r["RunTime"] < run_time:
-                    run_time = r["RunTime"]
-                    idx = i
-        return idx
+            return idx
 
-def find_last_job(jobs, bench_name, bench_size):
+def find_last_job(jobs, tune, bench_name, bench_size):
     """find the last job for given bench_name and bench_size
 
     Args:
         jobs (list): a list of the jobs.
+        tune (str): peak or base
         bench_name (str): the name of the benchmark
         bench_size (str): the size of the benchmark
     """
     num_jobs = len(jobs)
     for i in range(num_jobs-1, 0, -1):
         job = jobs[i]
-        for r in job["result"]:
-            if job["benchmark_name"] == bench_name and r["BenchSize"] == bench_size:
-                return i
+        if job["benchmark_name"] == bench_name and job["bench_size"] == bench_size and job["tune"] == tune:
+            return i
     else:
         return None
 
-def get_peak_flags(jobs, bench_name, bench_size):
+def is_empty_flags(flags):
+    """ if all the flags are empty, return true
+
+    Args:
+        flags (list): the gcc flags
+    """
+    for flag in flags:
+        if len(flag) > 0:
+            return False
+    return True
+    
+def get_peak_flags(jobs, tune, bench_name, bench_size, langs):
     """get the peak flags in the jobs
 
     Args:
         jobs (list): a list of jobs. 
     """
-    idx = find_best_job(jobs, bench_name, bench_size)
+    idx = find_best_job(jobs, tune, bench_name, bench_size)
     if idx is None:
-        return [[]]
+        flags = []
+        for lang in langs:
+            flags.append([])
+        return flags
     else:
         return jobs[idx]["gcc_flags"]
 
@@ -660,19 +720,23 @@ def get_next_option(flags, options):
                         return (i, options[j+1])
     return (None, None)
 
-def get_bench_number_name(mystr):
+def get_bench_number_name(tune, mystr):
     """get the benchmark number and name from the given string
 
     Returns:
         point_type, benchmark number, benchmark name
     """
-    for point_type, v in Benchmarks.items():
-        if mystr in v.keys():
-            return (point_type, mystr, v[mystr]["name"])
-    for point_type, v in Benchmarks.items():
-        for bench_no, bench in v.items():
-            if bench["name"] == mystr:
-                return (point_type, bench_no, mystr)
+    if tune == "peak":
+        for point_type, v in Benchmarks.items():
+            if mystr in v.keys():
+                return (point_type, mystr, v[mystr]["name"])
+        for point_type, v in Benchmarks.items():
+            for bench_no, bench in v.items():
+                if bench["name"] == mystr:
+                    return (point_type, bench_no, mystr)
+    elif tune == "base":
+        if mystr in ["int", "fp"]:
+            return (mystr, "base", mystr)
     return (None, None, None)
 
 class param(object):
@@ -695,20 +759,28 @@ class param(object):
         # Set some common parameters for global minima search and TS calculations
         section = "common"
         self.config_file = config.get(section, "config_file")
-        self.tune = config.get(section, "tune")
+        self.tune = config.get(section, "tune").strip().lower()
         self.copies = config.getint(section, "copies", fallback=1)
         self.iterations = config.getint(section, "iterations", fallback=1)
         self.bench_size = config.get(section, "bench_size", fallback="ref")
-        benchmark_set = config.get(section, "benchmarks").strip()
-        #benchmark set could be int, fp, all, or a list of benchmarks.
-        if benchmark_set.lower() == "int":
-            self.benchmark_set = list(Benchmarks["int"].keys())
-        elif benchmark_set.lower() == "fp":
-            self.benchmark_set = list(Benchmarks["fp"].keys())
-        elif benchmark_set.lower() == "all":
-            self.benchmark_set = list(Benchmarks["int"].keys()) + list(Benchmarks["fp"].keys())
-        else:
+        benchmark_set = config.get(section, "benchmarks").strip().lower()
+        if self.tune == "peak":
+            #benchmark set could be int, fp, all, or a list of benchmarks.
+            if benchmark_set == "int":
+                self.benchmark_set = list(Benchmarks["int"].keys())
+            elif benchmark_set == "fp":
+                self.benchmark_set = list(Benchmarks["fp"].keys())
+            elif benchmark_set == "all":
+                self.benchmark_set = list(Benchmarks["int"].keys()) + list(Benchmarks["fp"].keys())
+            else:
+                self.benchmark_set = benchmark_set.split()
+        elif self.tune == "base":
+            #benchmark set could be int or fp
             self.benchmark_set = benchmark_set.split()
+            Logger.info("The benchmark set is %s", self.benchmark_set)
+            if self.bench_size != "ref":
+                Logger.error("For base benchmark, the benchmark size must be \"ref\". Please modify the config file!")
+                exit(1)
         self.compiler_option_file = config.get(section, "compiler_option_file")
         real_config_file = os.path.join(self.config_dir,self.config_file)
         with open(real_config_file, "r") as fp:
@@ -733,20 +805,29 @@ class param(object):
 class spec_job():
     """a class for descriping a SPEC 2006 benchmark
     """
-    def __init__(self, spec_config, benchmark):
+    def __init__(self, spec_config:param, benchmark:str):
         """basic informtaion about a spec 2006 benchmark
         """
         self.spec_config = spec_config
-        self.point_type, self.bench_no, self.bench_name = get_bench_number_name(benchmark)
-        self.langs = Benchmarks[self.point_type][self.bench_no]["lang"]
+        self.point_type, self.bench_no, self.bench_name = get_bench_number_name(spec_config.tune, benchmark)
+        if spec_config.tune == "base":
+            if self.bench_name == "int":
+                self.langs = ["C", "C++"]
+            elif self.bench_name == "fp":
+                self.langs = ["C", "C++", "Fortran"]
+            else:
+                Logger.error("For tune == base, the benchmark name should be \"int\" or \"fp\"")
+                exit(1)
+        else:
+            self.langs = Benchmarks[self.point_type][self.bench_no]["lang"]
         self.opt_flag_names = [OptMap[lang] for lang in self.langs]
         self.options = load_json(self.spec_config.compiler_option_file)
         if os.path.exists(self.spec_config.jobs_file):
             self.jobs = load_json(self.spec_config.jobs_file)
         else:
             self.jobs = []
-        if self.spec_config.tune == "base" and self.bench_name in ["int", "fp"]:
-            key = "%s_%s" % (self.spec_config.tune, benchmark)
+        if self.spec_config.tune == "base" and benchmark in ["int", "fp"]:
+            key = "%s_%s" % (benchmark, self.spec_config.tune)
             self.cfg_struct = self.spec_config.compiler_cfg[key]
         elif self.spec_config.tune == "peak":
             self.cfg_struct = self.spec_config.compiler_cfg[self.spec_config.tune][self.bench_no]
@@ -755,7 +836,7 @@ class spec_job():
         self.log_name = ""
         self.final_score = 0.0
         if len(self.jobs) > 0:
-            last_job_idx = find_last_job(self.jobs, self.bench_name, self.spec_config.bench_size)
+            last_job_idx = find_last_job(self.jobs, self.spec_config.tune, self.bench_name, self.spec_config.bench_size)
             if last_job_idx is not None:
                 self.opt_flags = self.jobs[last_job_idx]["gcc_flags"]
             else:
@@ -770,7 +851,8 @@ class spec_job():
     def run_spec(self):
         """run spec 2006 using current spec configuration and compiler configuration.
         """
-        out, err = run_spec(self.spec_config, self.bench_no)
+        out, err = run_spec(self.spec_config, self.bench_name)
+        #out, err = run_fake_spec(self.spec_config, self.bench_name)
         out_lines = out.split("\n")
         Logger.debug("Out Lines are\n%s", out_lines)
         self.log_name = get_log_name(out_lines)
@@ -789,7 +871,7 @@ class spec_job():
         bench_size = self.spec_config.bench_size
         bench_no = self.bench_no
         bench_name = self.bench_name
-        if bench_name in ["fp", "int"]:
+        if tune == "base" and bench_name in ["fp", "int"]:
             return GetScore(filter_res(res, tune, bench_size, bench_name))
         else:
             ratios = []
@@ -809,6 +891,8 @@ class spec_job():
         db = {}
         db["job_status"] = self.job_status
         db["benchmark_number"] = self.bench_no
+        db["bench_size"] = self.spec_config.bench_size
+        db["tune"] = self.spec_config.tune
         db["benchmark_name"] = self.bench_name
         db["log_name"] = self.log_name
         db["result"] = self.result
@@ -825,15 +909,18 @@ class spec_job():
             new_flags[i].append(next_option)
         else:
             Logger.info("Current optimization flags are %s", self.opt_flags)
-            i, next_option = get_next_option(self.opt_flags, self.options)
-            if i is None:
-                Logger.info("No more options are available. Ending the optimization of %s", self.bench_name)
-                return False
+            if is_empty_flags(self.opt_flags):
+                new_flags = [[self.options[0]] for flag in self.opt_flags]
             else:
-                peak_flags = get_peak_flags(self.jobs, self.bench_name, self.spec_config.bench_size)
-                Logger.info("Current peak flags are %s", peak_flags)
-                new_flags = copy.deepcopy(peak_flags)
-                new_flags[i].append(next_option)
+                i, next_option = get_next_option(self.opt_flags, self.options)
+                if i is None:
+                    Logger.info("No more options are available. Ending the optimization of %s", self.bench_name)
+                    return False
+                else:
+                    peak_flags = get_peak_flags(self.jobs, self.spec_config.tune, self.bench_name, self.spec_config.bench_size, self.langs)
+                    Logger.info("Current peak flags are %s", peak_flags)
+                    new_flags = copy.deepcopy(peak_flags)
+                    new_flags[i].append(next_option)
         Logger.info("New flags are %s", new_flags)
         self.opt_flags = new_flags
         new_cfg_lines = update_cfg_lines(self.spec_config.config_lines,
@@ -853,16 +940,18 @@ class spec_job():
             if not self.update_cfg():
                 break
             self.run_spec()
-        peak_flags = get_peak_flags(self.jobs, self.bench_name, self.spec_config.bench_size)
+        peak_flags = get_peak_flags(self.jobs, self.spec_config.tune, self.bench_name, self.spec_config.bench_size, self.langs)
         Logger.info("The best options for %s is: %s", self.bench_name, peak_flags)
         return True
 
 if __name__ == "__main__":
     config = sys.argv[1]
+    Logger.info("\n%s\nAutoSPEC started with pid %s \n%s", "#"*80, os.getpid(), "#"*80)
     Logger.info("Running AutoSPEC with configuration file %s", config)
     spec_config = param(config)
+    tune = spec_config.tune
     for benchmark in spec_config.benchmark_set:
-        point_type, bench_no, bench_name = get_bench_number_name(benchmark)
+        point_type, bench_no, bench_name = get_bench_number_name(tune, benchmark)
         Logger.info("Optimizing the flags for %s benchmark %s.%s", point_type, bench_no, bench_name)
         job = spec_job(spec_config, benchmark)
         job.main()
